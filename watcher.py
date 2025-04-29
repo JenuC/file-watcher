@@ -18,73 +18,104 @@ class MyEventHandler(FileSystemEventHandler):
         self.console = console
         self.log_file = log_file
         self.file_history = {}
-        self.log_file.parent.mkdir(parents=True, exist_ok=True)  # Ensure log dir exists
-        self.end_tree = []
+        self.log_file.parent.mkdir(parents=True, exist_ok=True)
         self.last_log_message = None
         super().__init__()
 
     def _log_event(self, event_type, file_path, dest_path=None):
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        current_time = datetime.now()
+        timestamp_str = current_time.strftime("%Y-%m-%d %H:%M:%S")
+        
         if dest_path:
-            log_message = f"{timestamp} - {event_type}: {file_path} -> {dest_path}"
+            log_message = f"{timestamp_str} - {event_type}: {file_path} -> {dest_path}"
         else:
-            log_message = f"{timestamp} - {event_type}: {file_path}"
+            log_message = f"{timestamp_str} - {event_type}: {file_path}"
 
+        # Only log if message is different from last one
         if log_message != self.last_log_message:
             with open(self.log_file, "a") as f:
                 f.write(log_message + "\n")
-
+            
             if file_path not in self.file_history:
                 self.file_history[file_path] = []
-            self.file_history[file_path].append((timestamp, event_type, dest_path))
-
-            if dest_path:
-                self._build_tree(file_path, timestamp, event_type, dest_path)
-            else:
-                self._build_tree(file_path, timestamp, event_type)
-
+            # Store the actual datetime object along with the event info
+            self.file_history[file_path].append((current_time, event_type, dest_path))
+            
             self.last_log_message = log_message
 
-    def _build_tree(self, path, timestamp, event_type, dest_path=None):
-        """Build the tree for the end of the program."""
-
-        if dest_path:
-            self.end_tree.append(
-                f"{timestamp} - {event_type}: {path} -> {dest_path}"
-            )
+    def _calculate_lifetime(self, events):
+        """Calculate the lifetime of a file based on its events."""
+        if not events:
+            return "N/A"
+        
+        first_event = events[0][0]  # First event timestamp
+        if events[-1][1] == "Deleted":
+            last_event = events[-1][0]  # Use deletion time
+            lifetime = last_event - first_event
         else:
-            self.end_tree.append(
-                f"{timestamp} - {event_type}: {path}"
-            )
+            lifetime = datetime.now() - first_event
+        
+        seconds = lifetime.total_seconds()
+        if seconds < 60:
+            return f"{seconds:.1f} seconds"
+        elif seconds < 3600:
+            return f"{seconds/60:.1f} minutes"
+        else:
+            return f"{seconds/3600:.1f} hours"
 
     def _print_tree(self):
         """Print the tree in the log file and console at the end."""
-        tree_dict = {}
-        for line in self.end_tree:
-            parts = line.split(" - ", 2)
-            timestamp = parts[0]
-            event_info = parts[1]
+        # First write a summary to the log file
+        with open(self.log_file, "a") as f:
+            f.write("\n=== File History Summary ===\n")
+            
+            # Sort files by creation time
+            sorted_files = sorted(self.file_history.items(), 
+                                key=lambda x: x[1][0][0] if x[1] else datetime.max)
+            
+            for path, events in sorted_files:
+                if not events:
+                    continue
+                    
+                lifetime = self._calculate_lifetime(events)
+                creation_time = events[0][0].strftime("%Y-%m-%d %H:%M:%S")
+                
+                # Write to log file
+                f.write(f"\nFile: {path}\n")
+                f.write(f"Created: {creation_time}\n")
+                f.write(f"Lifetime: {lifetime}\n")
+                f.write("Events:\n")
+                
+                for time, event_type, dest_path in events:
+                    time_str = time.strftime("%Y-%m-%d %H:%M:%S")
+                    if dest_path:
+                        f.write(f"  {time_str} - {event_type} -> {dest_path}\n")
+                    else:
+                        f.write(f"  {time_str} - {event_type}\n")
+                f.write("\n")  # Add extra newline between files
 
-            if " -> " in event_info:
-                event_type, paths = event_info.split(": ", 1)
-                src_path, dest_path = paths.split(" -> ")
-                path = src_path
-            else:
-                event_type, path = event_info.split(": ", 1)
-
-            if path not in tree_dict:
-                tree_dict[path] = []
-            tree_dict[path].append(line)
-
-        for path in tree_dict:
-            tree = Tree(f"File History for {path}")
-            for line in tree_dict[path]:
-                tree.add(line)
-            with open(self.log_file, "a") as f:
-                f.write(f"\nFile History for {path}\n")
-                for line in tree_dict[path]:
-                    f.write(f"{line}\n")
+        # Now print to console with rich formatting
+        for path, events in sorted_files:
+            if not events:
+                continue
+                
+            tree = Tree(f"[bold]File: {path}[/bold]")
+            lifetime = self._calculate_lifetime(events)
+            creation_time = events[0][0].strftime("%Y-%m-%d %H:%M:%S")
+            
+            tree.add(f"[blue]Created: {creation_time}[/blue]")
+            tree.add(f"[green]Lifetime: {lifetime}[/green]")
+            
+            events_branch = tree.add("Events:")
+            for time, event_type, dest_path in events:
+                time_str = time.strftime("%Y-%m-%d %H:%M:%S")
+                if dest_path:
+                    events_branch.add(f"[yellow]{time_str} - {event_type} -> {dest_path}[/yellow]")
+                else:
+                    events_branch.add(f"[yellow]{time_str} - {event_type}[/yellow]")
+            
             self.console.print(Panel(tree))
+            self.console.print()  # Add extra newline between files
 
     def on_created(self, event):
         if not event.is_directory and self._is_event_relevant(event.src_path):
@@ -167,8 +198,8 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         state.running = False
         console.print("[bold magenta]Watcher stopped by user.[/bold magenta]")
-        event_handler._print_tree()
     finally:
         observer.stop()
         observer.join()
+        event_handler._print_tree()
         console.print("[bold magenta]Watcher finished.[/bold magenta]")
