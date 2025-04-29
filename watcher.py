@@ -20,6 +20,7 @@ class MyEventHandler(FileSystemEventHandler):
         self.file_history = {}
         self.log_file.parent.mkdir(parents=True, exist_ok=True)  # Ensure log dir exists
         self.end_tree = []
+        self.last_log_message = None
         super().__init__()
 
     def _log_event(self, event_type, file_path, dest_path=None):
@@ -29,17 +30,20 @@ class MyEventHandler(FileSystemEventHandler):
         else:
             log_message = f"{timestamp} - {event_type}: {file_path}"
 
-        with open(self.log_file, "a") as f:
-            f.write(log_message + "\n")
+        if log_message != self.last_log_message:
+            with open(self.log_file, "a") as f:
+                f.write(log_message + "\n")
 
-        if file_path not in self.file_history:
-            self.file_history[file_path] = []
-        self.file_history[file_path].append((timestamp, event_type, dest_path))
+            if file_path not in self.file_history:
+                self.file_history[file_path] = []
+            self.file_history[file_path].append((timestamp, event_type, dest_path))
 
-        if dest_path:
-            self._build_tree(file_path, timestamp, event_type, dest_path)
-        else:
-            self._build_tree(file_path, timestamp, event_type)
+            if dest_path:
+                self._build_tree(file_path, timestamp, event_type, dest_path)
+            else:
+                self._build_tree(file_path, timestamp, event_type)
+
+            self.last_log_message = log_message
 
     def _build_tree(self, path, timestamp, event_type, dest_path=None):
         """Build the tree for the end of the program."""
