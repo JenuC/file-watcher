@@ -1,6 +1,7 @@
 import sys
 import time
 import logging
+import threading
 from datetime import datetime
 from pathlib import Path
 from watchdog.events import FileSystemEventHandler
@@ -138,12 +139,30 @@ if __name__ == "__main__":
     observer = Observer()
     observer.schedule(event_handler, path, recursive=True)
     observer.start()
+
+    # Flag to control the main loop
+    running = True
+
+    def check_user_input():
+        nonlocal running
+        while running:
+            user_input = input()
+            if user_input.strip() == ":q":
+                running = False
+                break
+
+    # Start the input thread
+    input_thread = threading.Thread(target=check_user_input, daemon=True)
+    input_thread.start()
+
     try:
-        while True:
-            time.sleep(1)
+        while running:
+            time.sleep(0.1)  # Reduced sleep time for more responsive exit
     except KeyboardInterrupt:
-        observer.stop()
+        running = False
         console.print("[bold magenta]Watcher stopped by user.[/bold magenta]")
         event_handler._print_tree()
-    observer.join()
-    console.print("[bold magenta]Watcher finished.[/bold magenta]")
+    finally:
+        observer.stop()
+        observer.join()
+        console.print("[bold magenta]Watcher finished.[/bold magenta]")
