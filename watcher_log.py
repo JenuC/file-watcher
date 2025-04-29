@@ -17,7 +17,6 @@ class FileWatcher:
         self.file_history = {}
         self.running = False
         self.observer = None
-        self.input_thread = None
 
     def _calculate_lifetime(self, events):
         """Calculate the lifetime of a file based on its events."""
@@ -97,16 +96,6 @@ class FileWatcher:
         self.observer.schedule(EventHandler(self), self.watch_path, recursive=True)
         self.observer.start()
 
-        def check_user_input():
-            while self.running:
-                user_input = input()
-                if user_input.strip() == ":q":
-                    self.stop()
-                    break
-
-        self.input_thread = threading.Thread(target=check_user_input, daemon=True)
-        self.input_thread.start()
-
     def stop(self):
         """Stop watching files."""
         if not self.running:
@@ -116,8 +105,6 @@ class FileWatcher:
         if self.observer:
             self.observer.stop()
             self.observer.join()
-        if self.input_thread:
-            self.input_thread.join()
 
     def __enter__(self):
         """Context manager entry."""
