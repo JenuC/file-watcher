@@ -49,13 +49,11 @@ class MyEventHandler(FileSystemEventHandler):
             return "N/A"
         
         first_event = events[0][0]  # First event timestamp
-        if events[-1][1] == "Deleted":
-            last_event = events[-1][0]  # Use deletion time
-            lifetime = last_event - first_event
-        else:
-            lifetime = datetime.now() - first_event
+        last_event = events[-1][0]  # Use last event time
         
+        lifetime = last_event - first_event
         seconds = lifetime.total_seconds()
+        
         if seconds < 60:
             return f"{seconds:.1f} seconds"
         elif seconds < 3600:
