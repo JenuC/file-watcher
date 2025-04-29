@@ -121,6 +121,11 @@ class MyEventHandler(FileSystemEventHandler):
         return path != self.log_file and ".git" not in path.parts
 
 
+class WatcherState:
+    def __init__(self):
+        self.running = True
+
+
 if __name__ == "__main__":
     console = Console()
     logging.basicConfig(
@@ -140,26 +145,23 @@ if __name__ == "__main__":
     observer.schedule(event_handler, path, recursive=True)
     observer.start()
 
-    # Flag to control the main loop
-    running = True
+    state = WatcherState()
 
     def check_user_input():
-        nonlocal running
-        while running:
+        while state.running:
             user_input = input()
             if user_input.strip() == ":q":
-                running = False
+                state.running = False
                 break
 
-    # Start the input thread
     input_thread = threading.Thread(target=check_user_input, daemon=True)
     input_thread.start()
 
     try:
-        while running:
-            time.sleep(0.1)  # Reduced sleep time for more responsive exit
+        while state.running:
+            time.sleep(0.1)
     except KeyboardInterrupt:
-        running = False
+        state.running = False
         console.print("[bold magenta]Watcher stopped by user.[/bold magenta]")
         event_handler._print_tree()
     finally:
