@@ -27,7 +27,7 @@ with FileWatcher(".") as watcher:
 lifetimes = watcher.get_file_lifetimes()
 if lifetimes:
     print("\nFile lifetimes:")
-    for path, lifetime in lifetimes:
-        print(f"{path}: {lifetime}")
+    for path_info in lifetimes:
+        print(path_info)
 else:
     print("\nNo file changes detected.")

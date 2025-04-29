@@ -59,8 +59,34 @@ class FileWatcher:
         for path, events in sorted_files:
             if not events:
                 continue
-            lifetime = self._calculate_lifetime(events)
-            lifetimes.append((path, lifetime))
+                
+            # Get creation time (first event)
+            creation_time = events[0][0]
+            creation_str = creation_time.strftime("%H:%M:%S")
+            
+            # Get last event time
+            if events[-1][1] == "Deleted":
+                last_time = events[-1][0]
+            else:
+                last_time = datetime.now()
+            last_str = last_time.strftime("%H:%M:%S")
+            
+            # Calculate time difference
+            time_diff = last_time - creation_time
+            seconds = time_diff.total_seconds()
+            
+            # Format time difference
+            if seconds < 60:
+                diff_str = f"{seconds:.1f}s"
+            elif seconds < 3600:
+                diff_str = f"{seconds/60:.1f}m"
+            else:
+                diff_str = f"{seconds/3600:.1f}h"
+            
+            # Format the output
+            output = f"{path} (c{creation_str}, m{last_str}) dt = {diff_str}"
+            lifetimes.append(output)
+            
         return lifetimes
 
     def start(self):
@@ -127,5 +153,5 @@ if __name__ == "__main__":
         
         # Print file lifetimes
         lifetimes = watcher.get_file_lifetimes()
-        for path, lifetime in lifetimes:
-            print(f"{path}: {lifetime}")
+        for path in lifetimes:
+            print(path)
