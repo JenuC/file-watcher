@@ -65,10 +65,8 @@ class FileWatcher:
             creation_str = creation_time.strftime("%H:%M:%S")
             
             # Get last event time
-            if events[-1][1] == "Deleted":
-                last_time = events[-1][0]
-            else:
-                last_time = datetime.now()
+            last_event = events[-1]
+            last_time = last_event[0]  # Default to last event time
             last_str = last_time.strftime("%H:%M:%S")
             
             # Calculate time difference
