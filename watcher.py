@@ -147,4 +147,3 @@ if __name__ == "__main__":
         event_handler._print_tree()
     observer.join()
     console.print("[bold magenta]Watcher finished.[/bold magenta]")
-    event_handler._print_tree()
